@@ -20,7 +20,7 @@ use tokio::{
     select,
     sync::mpsc::Receiver,
 };
-use tokio_serial::{SerialPort, SerialPortBuilderExt as _, SerialStream};
+use tokio_serial::{SerialPortBuilderExt as _, SerialStream};
 
 /// Prints defmt-encoded logs to stdout
 #[derive(Parser, Clone)]
