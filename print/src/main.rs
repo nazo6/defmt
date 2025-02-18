@@ -20,6 +20,7 @@ use tokio::{
     select,
     sync::mpsc::Receiver,
 };
+use tokio_serial::{SerialPort, SerialPortBuilderExt as _, SerialStream};
 
 /// Prints defmt-encoded logs to stdout
 #[derive(Parser, Clone)]
@@ -65,11 +66,14 @@ enum Command {
         #[arg(long, env = "RTT_PORT", default_value_t = 19021)]
         port: u16,
     },
+    /// Read defmt frames from seial port
+    Serial { path: String },
 }
 
 enum Source {
     Stdin(Stdin),
     Tcp(TcpStream),
+    Serial(SerialStream),
 }
 
 impl Source {
@@ -84,6 +88,11 @@ impl Source {
         }
     }
 
+    fn serial(path: String) -> Self {
+        let serial = tokio_serial::new(path, 115200).open_native_async().unwrap();
+        Source::Serial(serial)
+    }
+
     async fn read(&mut self, buf: &mut [u8]) -> anyhow::Result<(usize, bool)> {
         match self {
             Source::Stdin(stdin) => {
@@ -91,6 +100,7 @@ impl Source {
                 Ok((n, n == 0))
             }
             Source::Tcp(tcpstream) => Ok((tcpstream.read(buf).await?, false)),
+            Source::Serial(serial) => Ok((serial.read(buf).await?, false)),
         }
     }
 }
@@ -109,6 +119,7 @@ async fn main() -> anyhow::Result<()> {
     let mut source = match opts.command.clone() {
         None | Some(Command::Stdin) => Source::stdin(),
         Some(Command::Tcp { host, port }) => Source::tcp(host, port).await?,
+        Some(Command::Serial { path }) => Source::serial(path),
     };
 
     if opts.watch_elf {
